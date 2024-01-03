@@ -216,8 +216,12 @@ class Create extends React.Component {
         ],
       };
     } else {
+      let extension = "jmx";
+      if (values.testType === "k6") {
+        extension = "js";
+      }
       payload.testScenario.scenarios[values.testName] = {
-        script: `${testId}.jmx`,
+        script: `${testId}.${extension}`,
       };
 
       if (this.state.file) {
@@ -232,7 +236,7 @@ class Create extends React.Component {
             payload.fileType = "script";
           }
           this.setState({ isUploading: true });
-          await Storage.put(`test-scenarios/jmeter/${filename}`, file);
+          await Storage.put(`test-scenarios/${values.testType}/${filename}`, file);
           console.log("Script uploaded successfully");
         } catch (error) {
           console.error("Error", error);
@@ -925,6 +929,7 @@ class Create extends React.Component {
                 >
                   <option value="simple">Single HTTP Endpoint</option>
                   <option value="jmeter">JMeter</option>
+                  <option value="k6">K6</option>
                 </Input>
               </FormGroup>
               {this.state.formValues.testType === "simple" && (
@@ -1029,7 +1034,7 @@ class Create extends React.Component {
                       <FormText color="muted">
                         You can choose either a <code>.jmx</code> file or a <code>.zip</code> file. Choose{" "}
                         <code>.zip</code> file if you have any files to upload other than a <code>.jmx</code> script
-                        file.
+                        file, or if you didn't select a "JMeter" as the test type.
                       </FormText>
                       {this.state.isUploading && (
                         <div className="alert alert-info" role="alert">
