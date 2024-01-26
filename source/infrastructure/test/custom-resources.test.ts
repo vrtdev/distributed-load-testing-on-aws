@@ -57,9 +57,11 @@ test("DLT API Test", () => {
 
   customResources.consoleConfig({
     apiEndpoint: "http://testEndpointUrl.com",
+    cloudFrontDomainName: "d123.cloudfront.net",
     cognitoIdentityPool: "testIdentityPool",
     cognitoUserPool: "testUserPool",
     cognitoUserPoolClient: "testUserPoolClient",
+    cognitoDomainName: "testDomainName",
     consoleBucketName: "testconsolebucket",
     scenariosBucket: "testscenariobucket",
     sourceCodeBucketName: "sourcebucket",

@@ -5,6 +5,8 @@ import {
   UserPool,
   CfnUserPool,
   UserPoolClient,
+  UserPoolClientIdentityProvider,
+  OAuthScope,
   ClientAttributes,
   CfnIdentityPool,
   CfnIdentityPoolRoleAttachment,
@@ -156,7 +158,16 @@ export class CognitoAuthConstruct extends Construct {
     const cognitoUserPoolClient = new UserPoolClient(this, "DLTUserPoolClient", {
       userPoolClientName: `${Aws.STACK_NAME}-userpool-client`,
       userPool,
+      supportedIdentityProviders: [UserPoolClientIdentityProvider.custom("AzureAD")],
       generateSecret: false,
+      oAuth: {
+        flows: {
+          authorizationCodeGrant: true,
+        },
+        scopes: [OAuthScope.EMAIL, OAuthScope.OPENID, OAuthScope.PROFILE, OAuthScope.COGNITO_ADMIN],
+        callbackUrls: [`https://${props.cloudFrontDomainName}/`],
+        logoutUrls: [`https://${props.cloudFrontDomainName}/`],
+      },
       writeAttributes: clientWriteAttributes,
       refreshTokenValidity: Duration.days(1),
     });
