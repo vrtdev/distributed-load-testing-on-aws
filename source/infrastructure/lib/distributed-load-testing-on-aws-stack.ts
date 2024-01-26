@@ -191,6 +191,14 @@ export class DLTStack extends Stack {
       constraintDescription: "Only certificates in us-east-1 are supported.",
     });
 
+    const domainLabel = new CfnParameter(this, "DomainLabel", {
+      type: "String",
+      description: "First label of the UserPool Domain",
+      minLength: 1,
+      maxLength: 16,
+      allowedPattern: "[a-zA-Z0-9-]+",
+    });
+
     // CloudFormation metadata
     this.templateOptions.metadata = {
       "AWS::CloudFormation::Interface": {
@@ -214,7 +222,7 @@ export class DLTStack extends Stack {
           },
           {
             Label: { default: "Enter value here to use your own existing Cognito Pool" },
-            Parameters: [existingCognitoPoolId.logicalId],
+            Parameters: [existingCognitoPoolId.logicalId, domainLabel.logicalId],
           },
           {
             Label: {
@@ -237,6 +245,7 @@ export class DLTStack extends Stack {
           [existingCognitoPoolId.logicalId]: {
             default: "The ID of an existing Cognito User Pool in this region. Ex: `us-east-1_123456789`",
           },
+          [domainLabel.logicalId]: { default: "The first label of the Cognito User Pool Domain. Ex: `mydomain`" },
         },
       },
     };
@@ -502,9 +511,11 @@ export class DLTStack extends Stack {
 
     customResources.consoleConfig({
       apiEndpoint: dltApi.apiEndpointPath,
+      cloudFrontDomainName: dltConsole.cloudFrontDomainName,
       cognitoIdentityPool: cognitoResources.cognitoIdentityPoolId,
       cognitoUserPool: cognitoResources.cognitoUserPoolId,
       cognitoUserPoolClient: cognitoResources.cognitoUserPoolClientId,
+      cognitoDomainName: domainLabel.valueAsString,
       consoleBucketName: dltConsole.consoleBucket.bucketName,
       scenariosBucket: dltStorage.scenariosBucket.bucketName,
       sourceCodeBucketName: sourceCodeBucket,

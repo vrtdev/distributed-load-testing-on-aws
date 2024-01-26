@@ -314,19 +314,17 @@ exports[`DLT API Test 1`] = `
     "TestAuth2DLTUserPoolClient13957063": {
       "Properties": {
         "AllowedOAuthFlows": [
-          "implicit",
           "code",
         ],
         "AllowedOAuthFlowsUserPoolClient": true,
         "AllowedOAuthScopes": [
-          "profile",
-          "phone",
           "email",
           "openid",
+          "profile",
           "aws.cognito.signin.user.admin",
         ],
         "CallbackURLs": [
-          "https://example.com",
+          "https://test.com/",
         ],
         "ClientName": {
           "Fn::Join": [
@@ -340,9 +338,12 @@ exports[`DLT API Test 1`] = `
           ],
         },
         "GenerateSecret": false,
+        "LogoutURLs": [
+          "https://test.com/",
+        ],
         "RefreshTokenValidity": 1440,
         "SupportedIdentityProviders": [
-          "COGNITO",
+          "AzureAD",
         ],
         "TokenValidityUnits": {
           "RefreshToken": "minutes",
@@ -925,19 +926,17 @@ exports[`DLT API Test 1`] = `
     "TestAuthDLTUserPoolClient68D1C3B2": {
       "Properties": {
         "AllowedOAuthFlows": [
-          "implicit",
           "code",
         ],
         "AllowedOAuthFlowsUserPoolClient": true,
         "AllowedOAuthScopes": [
-          "profile",
-          "phone",
           "email",
           "openid",
+          "profile",
           "aws.cognito.signin.user.admin",
         ],
         "CallbackURLs": [
-          "https://example.com",
+          "https://test.com/",
         ],
         "ClientName": {
           "Fn::Join": [
@@ -951,9 +950,12 @@ exports[`DLT API Test 1`] = `
           ],
         },
         "GenerateSecret": false,
+        "LogoutURLs": [
+          "https://test.com/",
+        ],
         "RefreshTokenValidity": 1440,
         "SupportedIdentityProviders": [
-          "COGNITO",
+          "AzureAD",
         ],
         "TokenValidityUnits": {
           "RefreshToken": "minutes",

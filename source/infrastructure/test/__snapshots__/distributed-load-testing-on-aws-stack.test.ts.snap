@@ -217,6 +217,7 @@ exports[`Distributed Load Testing stack test 1`] = `
           },
           "Parameters": [
             "ExistingCognitoPoolId",
+            "DomainLabel",
           ],
         },
         {
@@ -235,6 +236,9 @@ exports[`Distributed Load Testing stack test 1`] = `
         },
         "AdminName": {
           "default": "* Console Administrator Name",
+        },
+        "DomainLabel": {
+          "default": "The first label of the Cognito User Pool Domain. Ex: \`mydomain\`",
         },
         "EgressCidr": {
           "default": "AWS Fargate SecurityGroup CIDR Block",
@@ -363,6 +367,13 @@ exports[`Distributed Load Testing stack test 1`] = `
       "ConstraintDescription": "Only certificates in us-east-1 are supported.",
       "Default": "",
       "Description": "ARN of the ACM certificate to use. Can be left empty if CloudFrontAliases is empty",
+      "Type": "String",
+    },
+    "DomainLabel": {
+      "AllowedPattern": "[a-zA-Z0-9-]+",
+      "Description": "First label of the UserPool Domain",
+      "MaxLength": 16,
+      "MinLength": 1,
       "Type": "String",
     },
     "EgressCidr": {
@@ -2263,19 +2274,31 @@ exports[`Distributed Load Testing stack test 1`] = `
     "DLTCognitoAuthDLTUserPoolClientA2F8B2DB": {
       "Properties": {
         "AllowedOAuthFlows": [
-          "implicit",
           "code",
         ],
         "AllowedOAuthFlowsUserPoolClient": true,
         "AllowedOAuthScopes": [
-          "profile",
-          "phone",
           "email",
           "openid",
+          "profile",
           "aws.cognito.signin.user.admin",
         ],
         "CallbackURLs": [
-          "https://example.com",
+          {
+            "Fn::Join": [
+              "",
+              [
+                "https://",
+                {
+                  "Fn::GetAtt": [
+                    "DLTConsoleResourcesDLTCloudFrontToS3CloudFrontDistribution3EF384B4",
+                    "DomainName",
+                  ],
+                },
+                "/",
+              ],
+            ],
+          },
         ],
         "ClientName": {
           "Fn::Join": [
@@ -2289,9 +2312,26 @@ exports[`Distributed Load Testing stack test 1`] = `
           ],
         },
         "GenerateSecret": false,
+        "LogoutURLs": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "https://",
+                {
+                  "Fn::GetAtt": [
+                    "DLTConsoleResourcesDLTCloudFrontToS3CloudFrontDistribution3EF384B4",
+                    "DomainName",
+                  ],
+                },
+                "/",
+              ],
+            ],
+          },
+        ],
         "RefreshTokenValidity": 1440,
         "SupportedIdentityProviders": [
-          "COGNITO",
+          "AzureAD",
         ],
         "TokenValidityUnits": {
           "RefreshToken": "minutes",
@@ -3413,7 +3453,35 @@ exports[`Distributed Load Testing stack test 1`] = `
                 "Ref": "DLTCognitoAuthDLTUserPoolClientA2F8B2DB",
               },
               "',
-      oauth: {},
+      oauth: {
+          domain: '",
+              {
+                "Ref": "DomainLabel",
+              },
+              ".auth.",
+              {
+                "Ref": "AWS::Region",
+              },
+              ".amazoncognito.com',
+          scope: ['email', 'openid', 'aws.cognito.signin.user.admin', 'profile'],
+          redirectSignIn: 'https://",
+              {
+                "Fn::GetAtt": [
+                  "DLTConsoleResourcesDLTCloudFrontToS3CloudFrontDistribution3EF384B4",
+                  "DomainName",
+                ],
+              },
+              "/',
+          redirectSignOut: 'https://",
+              {
+                "Fn::GetAtt": [
+                  "DLTConsoleResourcesDLTCloudFrontToS3CloudFrontDistribution3EF384B4",
+                  "DomainName",
+                ],
+              },
+              "/',
+          responseType: 'code'
+      },
       aws_cloud_logic_custom: [
           {
               name: 'dlts',
