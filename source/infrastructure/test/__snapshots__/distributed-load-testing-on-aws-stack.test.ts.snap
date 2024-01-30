@@ -4,6 +4,18 @@ exports[`Distributed Load Testing stack test 1`] = `
 {
   "AWSTemplateFormatVersion": "2010-09-09",
   "Conditions": {
+    "BoolCloudFrontCertificate": {
+      "Fn::Not": [
+        {
+          "Fn::Equals": [
+            {
+              "Ref": "CloudFrontCertificate",
+            },
+            "",
+          ],
+        },
+      ],
+    },
     "BoolExistingVPC": {
       "Fn::Not": [
         {
@@ -191,6 +203,15 @@ exports[`Distributed Load Testing stack test 1`] = `
             "EgressCidr",
           ],
         },
+        {
+          "Label": {
+            "default": "CloudFront configuration. Only enter values here if you are going to configure your own DNS record",
+          },
+          "Parameters": [
+            "CloudFrontAliases",
+            "CloudFrontCertificate",
+          ],
+        },
       ],
       "ParameterLabels": {
         "AdminEmail": {
@@ -309,6 +330,20 @@ exports[`Distributed Load Testing stack test 1`] = `
       "Description": "Admin user name to access the Distributed Load Testing console",
       "MaxLength": 20,
       "MinLength": 4,
+      "Type": "String",
+    },
+    "CloudFrontAliases": {
+      "AllowedPattern": "(^$|^[a-zA-Z0-9-.]+$)",
+      "ConstraintDescription": "The domain name can only contain alphanumeric characters, \`-\`, and \`.\`.",
+      "Default": "",
+      "Description": "Comma separated list of domain names to support. They must be included in the ACM certificate you are using",
+      "Type": "CommaDelimitedList",
+    },
+    "CloudFrontCertificate": {
+      "AllowedPattern": "(^$|^arn:aws:acm:us-east-1:\\d{12}:certificate/[a-z0-9]+$)",
+      "ConstraintDescription": "Only certificates in us-east-1 are supported.",
+      "Default": "",
+      "Description": "ARN of the ACM certificate to use. Can be left empty if CloudFrontAliases is empty",
       "Type": "String",
     },
     "EgressCidr": {
@@ -2608,6 +2643,9 @@ exports[`Distributed Load Testing stack test 1`] = `
       },
       "Properties": {
         "DistributionConfig": {
+          "Aliases": {
+            "Ref": "CloudFrontAliases",
+          },
           "Comment": "Website distribution for the Distributed Load Testing solution",
           "CustomErrorResponses": [
             {
@@ -2658,6 +2696,21 @@ exports[`Distributed Load Testing stack test 1`] = `
               "S3OriginConfig": {},
             },
           ],
+          "ViewerCertificate": {
+            "AcmCertificateArn": {
+              "Fn::If": [
+                "BoolCloudFrontCertificate",
+                {
+                  "Ref": "CloudFrontCertificate",
+                },
+                {
+                  "Ref": "AWS::NoValue",
+                },
+              ],
+            },
+            "MinimumProtocolVersion": "TLSv1.2_2021",
+            "SslSupportMethod": "sni-only",
+          },
         },
         "Tags": [
           {
@@ -5955,6 +6008,37 @@ exports[`Distributed Load Testing stack test 1`] = `
     },
   },
   "Rules": {
+    "CloudFrontAliasRule": {
+      "Assertions": [
+        {
+          "Assert": {
+            "Fn::Not": [
+              {
+                "Fn::Equals": [
+                  {
+                    "Ref": "CloudFrontCertificate",
+                  },
+                  "",
+                ],
+              },
+            ],
+          },
+          "AssertDescription": "If you are going to use CloudFrontAliases, you need to provide the ACM certificate ARN",
+        },
+      ],
+      "RuleCondition": {
+        "Fn::Not": [
+          {
+            "Fn::Equals": [
+              {
+                "Ref": "CloudFrontAliases",
+              },
+              "",
+            ],
+          },
+        ],
+      },
+    },
     "ExistingVPCRule": {
       "Assertions": [
         {

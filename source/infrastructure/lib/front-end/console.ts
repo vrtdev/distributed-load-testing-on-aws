@@ -4,6 +4,7 @@
 import { CloudFrontToS3 } from "@aws-solutions-constructs/aws-cloudfront-s3";
 import { Bucket, IBucket } from "aws-cdk-lib/aws-s3";
 import { Construct } from "constructs";
+import { Certificate } from "aws-cdk-lib/aws-certificatemanager";
 
 /**
  * @interface DLTConsoleConstructProps
@@ -14,6 +15,10 @@ export interface DLTConsoleConstructProps {
   readonly s3LogsBucket: Bucket;
   // Solution ID
   readonly solutionId: string;
+  // CloudFrontAliases:
+  readonly cloudFrontAliases: string[];
+  // CloudFront Certificate ARN
+  readonly cloudFrontCertificateArn: string;
 }
 
 /**
@@ -28,6 +33,8 @@ export class DLTConsoleConstruct extends Construct {
 
   constructor(scope: Construct, id: string, props: DLTConsoleConstructProps) {
     super(scope, id);
+
+    const certificate = Certificate.fromCertificateArn(this, "Certificate", props.cloudFrontCertificateArn);
 
     const dltS3CloudFrontDist = new CloudFrontToS3(this, "DLTCloudFrontToS3", {
       bucketProps: {
@@ -44,6 +51,8 @@ export class DLTConsoleConstruct extends Construct {
         httpVersion: "http2",
         logBucket: props.s3LogsBucket,
         logFilePrefix: "cloudfront-logs/",
+        domainNames: props.cloudFrontAliases,
+        certificate,
       },
       insertHttpSecurityHeaders: false,
     });

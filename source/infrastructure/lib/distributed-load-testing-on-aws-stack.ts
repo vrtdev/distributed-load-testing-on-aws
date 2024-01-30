@@ -167,6 +167,25 @@ export class DLTStack extends Stack {
       constraintDescription: "The Egress CIDR block must be a valid IP CIDR range of the form x.x.x.x/x.",
     });
 
+    // CloudFrontAliases
+    const cloudFrontAliases = new CfnParameter(this, "CloudFrontAliases", {
+      type: "CommaDelimitedList",
+      default: "",
+      description:
+        "Comma separated list of domain names to support. They must be included in the ACM certificate you are using",
+      allowedPattern: "(^$|^[a-zA-Z0-9-.]+$)",
+      constraintDescription: "The domain name can only contain alphanumeric characters, `-`, and `.`.",
+    });
+
+    // CloudFrontCertificate
+    const cloudFrontCertificate = new CfnParameter(this, "CloudFrontCertificate", {
+      type: "String",
+      default: "",
+      description: "ARN of the ACM certificate to use. Can be left empty if CloudFrontAliases is empty",
+      allowedPattern: "(^$|^arn:aws:acm:us-east-1:\\d{12}:certificate/[a-z0-9]+$)",
+      constraintDescription: "Only certificates in us-east-1 are supported.",
+    });
+
     // CloudFormation metadata
     this.templateOptions.metadata = {
       "AWS::CloudFormation::Interface": {
@@ -187,6 +206,13 @@ export class DLTStack extends Stack {
               subnetBCidrBlock.logicalId,
               egressCidrBlock.logicalId,
             ],
+          },
+          {
+            Label: {
+              default:
+                "CloudFront configuration. Only enter values here if you are going to configure your own DNS record",
+            },
+            Parameters: [cloudFrontAliases.logicalId, cloudFrontCertificate.logicalId],
           },
         ],
         ParameterLabels: {
@@ -218,6 +244,17 @@ export class DLTStack extends Stack {
           assert: Fn.conditionNot(Fn.conditionEquals(existingSubnetB.value, "")),
           assertDescription:
             "If an existing VPC Id is provided, 2 subnet ids need to be provided as well. You neglected to enter the second subnet id",
+        },
+      ],
+    });
+    // If the user enters a value for a CloudFront Alias,
+    // Require the customer to fill out values for the ACM certificate
+    new CfnRule(this, "CloudFrontAliasRule", {
+      ruleCondition: Fn.conditionNot(Fn.conditionEquals(cloudFrontAliases.value, "")),
+      assertions: [
+        {
+          assert: Fn.conditionNot(Fn.conditionEquals(cloudFrontCertificate.value, "")),
+          assertDescription: "If you are going to use CloudFrontAliases, you need to provide the ACM certificate ARN",
         },
       ],
     });
@@ -264,6 +301,10 @@ export class DLTStack extends Stack {
       expression: Fn.conditionNot(Fn.conditionEquals(existingVpcId.valueAsString, "")),
     });
 
+    const usingCloudFrontCertificate = new CfnCondition(this, "BoolCloudFrontCertificate", {
+      expression: Fn.conditionNot(Fn.conditionEquals(cloudFrontCertificate.valueAsString, "")),
+    });
+
     // Fargate VPC resources
     const fargateVpc = new FargateVpcConstruct(this, "DLTVpc", {
       solutionId,
@@ -298,9 +339,16 @@ export class DLTStack extends Stack {
 
     const s3LogsBucket = commonResources.s3LogsBucket();
 
+    const cloudFrontCertificateArn = Fn.conditionIf(
+      usingCloudFrontCertificate.logicalId,
+      cloudFrontCertificate.valueAsString,
+      Aws.NO_VALUE
+    ).toString();
     const dltConsole = new DLTConsoleConstruct(this, "DLTConsoleResources", {
       s3LogsBucket,
       solutionId,
+      cloudFrontAliases: cloudFrontAliases.valueAsList,
+      cloudFrontCertificateArn: cloudFrontCertificateArn,
     });
 
     const dltStorage = new ScenarioTestRunnerStorageConstruct(this, "DLTTestRunnerStorage", {
