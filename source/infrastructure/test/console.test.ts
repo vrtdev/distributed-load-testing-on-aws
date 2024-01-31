@@ -26,6 +26,8 @@ test("DLT API Test", () => {
     // In this specific case (with an alias but without a certificate), the actual template is not deployable
     cloudFrontAliases: ["www.example.com"],
     cloudFrontCertificateArn: Aws.NO_VALUE,
+    sslSupportMethod: Aws.NO_VALUE,
+    cloudFrontDefaultCertificate: "true",
   });
 
   expect(Template.fromStack(stack)).toMatchSnapshot();

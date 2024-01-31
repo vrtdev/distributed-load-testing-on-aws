@@ -187,7 +187,7 @@ export class DLTStack extends Stack {
       type: "String",
       default: "",
       description: "ARN of the ACM certificate to use. Can be left empty if CloudFrontAliases is empty",
-      allowedPattern: "(^$|^arn:aws:acm:us-east-1:\\d{12}:certificate/[a-z0-9]+$)",
+      allowedPattern: "(^$|.*us-east-1.*)",
       constraintDescription: "Only certificates in us-east-1 are supported.",
     });
 
@@ -271,7 +271,7 @@ export class DLTStack extends Stack {
     // If the user enters a value for a CloudFront Alias,
     // Require the customer to fill out values for the ACM certificate
     new CfnRule(this, "CloudFrontAliasRule", {
-      ruleCondition: Fn.conditionNot(Fn.conditionEquals(cloudFrontAliases.value, "")),
+      ruleCondition: Fn.conditionNot(Fn.conditionEachMemberEquals(cloudFrontAliases.valueAsList, "")),
       assertions: [
         {
           assert: Fn.conditionNot(Fn.conditionEquals(cloudFrontCertificate.value, "")),
@@ -326,6 +326,10 @@ export class DLTStack extends Stack {
       expression: Fn.conditionNot(Fn.conditionEquals(cloudFrontCertificate.valueAsString, "")),
     });
 
+    const hasAliases = new CfnCondition(this, "BoolAliases", {
+      expression: Fn.conditionNot(Fn.conditionEquals(Fn.join("", cloudFrontAliases.valueAsList), "")),
+    });
+
     // Fargate VPC resources
     const fargateVpc = new FargateVpcConstruct(this, "DLTVpc", {
       solutionId,
@@ -360,16 +364,25 @@ export class DLTStack extends Stack {
 
     const s3LogsBucket = commonResources.s3LogsBucket();
 
+    const cloudFrontAliasesList = Fn.conditionIf(hasAliases.logicalId, cloudFrontAliases, Aws.NO_VALUE).toString();
     const cloudFrontCertificateArn = Fn.conditionIf(
       usingCloudFrontCertificate.logicalId,
       cloudFrontCertificate.valueAsString,
       Aws.NO_VALUE
     ).toString();
+    const sslSupportMethod = Fn.conditionIf(usingCloudFrontCertificate.logicalId, "sni-only", Aws.NO_VALUE).toString();
+    const cloudFrontDefaultCertificate = Fn.conditionIf(
+      usingCloudFrontCertificate.logicalId,
+      Aws.NO_VALUE,
+      true
+    ).toString();
     const dltConsole = new DLTConsoleConstruct(this, "DLTConsoleResources", {
       s3LogsBucket,
       solutionId,
-      cloudFrontAliases: cloudFrontAliases.valueAsList,
+      cloudFrontAliases: cloudFrontAliasesList,
       cloudFrontCertificateArn: cloudFrontCertificateArn,
+      sslSupportMethod: sslSupportMethod,
+      cloudFrontDefaultCertificate: cloudFrontDefaultCertificate,
     });
 
     const dltStorage = new ScenarioTestRunnerStorageConstruct(this, "DLTTestRunnerStorage", {
@@ -555,6 +568,7 @@ export class DLTStack extends Stack {
     new CfnOutput(this, "Console", {
       description: "Console URL",
       value: dltConsole.cloudFrontDomainName,
+      exportName: `${Aws.STACK_NAME}-ConsoleURL`,
     });
     new CfnOutput(this, "SolutionUUID", {
       description: "Solution UUID",

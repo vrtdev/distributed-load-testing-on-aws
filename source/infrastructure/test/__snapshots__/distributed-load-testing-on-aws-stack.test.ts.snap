@@ -4,6 +4,23 @@ exports[`Distributed Load Testing stack test 1`] = `
 {
   "AWSTemplateFormatVersion": "2010-09-09",
   "Conditions": {
+    "BoolAliases": {
+      "Fn::Not": [
+        {
+          "Fn::Equals": [
+            {
+              "Fn::Join": [
+                "",
+                {
+                  "Ref": "CloudFrontAliases",
+                },
+              ],
+            },
+            "",
+          ],
+        },
+      ],
+    },
     "BoolCloudFrontCertificate": {
       "Fn::Not": [
         {
@@ -270,6 +287,19 @@ exports[`Distributed Load Testing stack test 1`] = `
   "Outputs": {
     "Console": {
       "Description": "Console URL",
+      "Export": {
+        "Name": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "AWS::StackName",
+              },
+              "-ConsoleURL",
+            ],
+          ],
+        },
+      },
       "Value": {
         "Fn::GetAtt": [
           "DLTConsoleResourcesDLTCloudFrontToS3CloudFrontDistribution3EF384B4",
@@ -363,7 +393,7 @@ exports[`Distributed Load Testing stack test 1`] = `
       "Type": "CommaDelimitedList",
     },
     "CloudFrontCertificate": {
-      "AllowedPattern": "(^$|^arn:aws:acm:us-east-1:\\d{12}:certificate/[a-z0-9]+$)",
+      "AllowedPattern": "(^$|.*us-east-1.*)",
       "ConstraintDescription": "Only certificates in us-east-1 are supported.",
       "Default": "",
       "Description": "ARN of the ACM certificate to use. Can be left empty if CloudFrontAliases is empty",
@@ -2741,7 +2771,15 @@ exports[`Distributed Load Testing stack test 1`] = `
       "Properties": {
         "DistributionConfig": {
           "Aliases": {
-            "Ref": "CloudFrontAliases",
+            "Fn::If": [
+              "BoolAliases",
+              {
+                "Ref": "CloudFrontAliases",
+              },
+              {
+                "Ref": "AWS::NoValue",
+              },
+            ],
           },
           "Comment": "Website distribution for the Distributed Load Testing solution",
           "CustomErrorResponses": [
@@ -2805,8 +2843,25 @@ exports[`Distributed Load Testing stack test 1`] = `
                 },
               ],
             },
+            "CloudFrontDefaultCertificate": {
+              "Fn::If": [
+                "BoolCloudFrontCertificate",
+                {
+                  "Ref": "AWS::NoValue",
+                },
+                true,
+              ],
+            },
             "MinimumProtocolVersion": "TLSv1.2_2021",
-            "SslSupportMethod": "sni-only",
+            "SslSupportMethod": {
+              "Fn::If": [
+                "BoolCloudFrontCertificate",
+                "sni-only",
+                {
+                  "Ref": "AWS::NoValue",
+                },
+              ],
+            },
           },
         },
         "Tags": [
@@ -6162,7 +6217,7 @@ exports[`Distributed Load Testing stack test 1`] = `
       "RuleCondition": {
         "Fn::Not": [
           {
-            "Fn::Equals": [
+            "Fn::EachMemberEquals": [
               {
                 "Ref": "CloudFrontAliases",
               },
