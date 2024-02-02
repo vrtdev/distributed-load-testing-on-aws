@@ -488,11 +488,16 @@ export class DLTStack extends Stack {
       uuid,
     });
 
+    const cloudFrontDomainName = Fn.conditionIf(
+      hasAliases.logicalId,
+      Fn.select(0, cloudFrontAliases.valueAsList),
+      dltConsole.cloudFrontDomainName
+    ).toString();
     const cognitoResources = new CognitoAuthConstruct(this, "DLTCognitoAuth", {
       adminEmail: adminEmail.valueAsString,
       adminName: adminName.valueAsString,
       apiId: dltApi.apiId,
-      cloudFrontDomainName: dltConsole.cloudFrontDomainName,
+      cloudFrontDomainName: cloudFrontDomainName,
       scenariosBucketArn: dltStorage.scenariosBucket.bucketArn,
       existingCognitoPoolId: existingCognitoPoolId.valueAsString,
     });
@@ -524,7 +529,7 @@ export class DLTStack extends Stack {
 
     customResources.consoleConfig({
       apiEndpoint: dltApi.apiEndpointPath,
-      cloudFrontDomainName: dltConsole.cloudFrontDomainName,
+      cloudFrontDomainName: cloudFrontDomainName,
       cognitoIdentityPool: cognitoResources.cognitoIdentityPoolId,
       cognitoUserPool: cognitoResources.cognitoUserPoolId,
       cognitoUserPoolClient: cognitoResources.cognitoUserPoolClientId,
