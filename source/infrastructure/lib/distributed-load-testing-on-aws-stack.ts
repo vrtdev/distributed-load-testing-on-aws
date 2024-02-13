@@ -385,9 +385,15 @@ export class DLTStack extends Stack {
       cloudFrontDefaultCertificate: cloudFrontDefaultCertificate,
     });
 
+    const cloudFrontDomainName = Fn.conditionIf(
+      hasAliases.logicalId,
+      Fn.select(0, cloudFrontAliases.valueAsList),
+      dltConsole.cloudFrontDomainName
+    ).toString();
+
     const dltStorage = new ScenarioTestRunnerStorageConstruct(this, "DLTTestRunnerStorage", {
       s3LogsBucket,
-      cloudFrontDomainName: dltConsole.cloudFrontDomainName,
+      cloudFrontDomainName: cloudFrontDomainName,
       solutionId,
     });
 
@@ -488,11 +494,6 @@ export class DLTStack extends Stack {
       uuid,
     });
 
-    const cloudFrontDomainName = Fn.conditionIf(
-      hasAliases.logicalId,
-      Fn.select(0, cloudFrontAliases.valueAsList),
-      dltConsole.cloudFrontDomainName
-    ).toString();
     const cognitoResources = new CognitoAuthConstruct(this, "DLTCognitoAuth", {
       adminEmail: adminEmail.valueAsString,
       adminName: adminName.valueAsString,

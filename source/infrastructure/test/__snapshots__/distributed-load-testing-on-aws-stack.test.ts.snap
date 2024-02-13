@@ -5568,9 +5568,22 @@ exports[`Distributed Load Testing stack test 1`] = `
                     [
                       "https://",
                       {
-                        "Fn::GetAtt": [
-                          "DLTConsoleResourcesDLTCloudFrontToS3CloudFrontDistribution3EF384B4",
-                          "DomainName",
+                        "Fn::If": [
+                          "BoolAliases",
+                          {
+                            "Fn::Select": [
+                              0,
+                              {
+                                "Ref": "CloudFrontAliases",
+                              },
+                            ],
+                          },
+                          {
+                            "Fn::GetAtt": [
+                              "DLTConsoleResourcesDLTCloudFrontToS3CloudFrontDistribution3EF384B4",
+                              "DomainName",
+                            ],
+                          },
                         ],
                       },
                     ],
