@@ -216,10 +216,14 @@ class Create extends React.Component {
         ],
       };
     } else {
-      let extension = "jmx";
+      var extension;
+      if (values.testType === "jmeter") {
+        extension = "jmx";
+      }
       if (values.testType === "k6") {
         extension = "js";
       }
+      payload.testScenario.execution[0].executor = values.testType;
       payload.testScenario.scenarios[values.testName] = {
         script: `${testId}.${extension}`,
       };
@@ -227,7 +231,7 @@ class Create extends React.Component {
       if (this.state.file) {
         try {
           const file = this.state.file;
-          let filename = `${testId}.jmx`;
+          let filename = `${testId}.${extension}`;
 
           if (file.type && file.type.includes("zip")) {
             payload.fileType = "zip";

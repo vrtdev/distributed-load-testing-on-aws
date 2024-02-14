@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# set -x
+
 set -e  # exit if a command fails
 set -u  # error/exit if variables are unset
 set -f  # disable globbing
@@ -32,17 +35,13 @@ aws s3 cp s3://$S3_BUCKET/test-scenarios/$TEST_ID-$AWS_REGION.json test.json
 if [ "$TEST_TYPE" == "jmeter" ]; then
   EXT="jmx"
   TYPE_NAME="JMeter"
-  LOG_FILE="jmeter.log"
-  OUT_FILE="jmeter.out"
-  ERR_FILE="jmeter.err"
 elif [ "$TEST_TYPE" == "k6" ]; then
   EXT="js"
   TYPE_NAME="K6"
-  LOG_FILE=""
-  OUT_FILE=""
-  ERR_FILE=""
 fi
-
+LOG_FILE="${TEST_TYPE}.log"
+OUT_FILE="${TEST_TYPE}.out"
+ERR_FILE="${TEST_TYPE}.err"
 
 if [ "$TEST_TYPE" != "simple" ]; then
   if [ "$FILE_TYPE" != "zip" ]; then
@@ -66,7 +65,7 @@ if [ "$TEST_TYPE" == "jmeter" ]; then
   # Copy *.jar to JMeter library path. See the Taurus JMeter path: https://gettaurus.org/docs/JMeter/
   JMETER_LIB_PATH=`find ~/.bzt/jmeter-taurus -type d -name "lib"`
   echo "cp $PWD/*.jar $JMETER_LIB_PATH"
-  cp $PWD/*.jar $JMETER_LIB_PATH
+  cp $PWD/*.jar $JMETER_LIB_PATH || true
 
   if [ "$FILE_TYPE" == "zip" ]; then
     # copy bundled plugin jars to jmeter extension folder to make them available to jmeter
@@ -82,19 +81,24 @@ if [ "$TEST_TYPE" == "jmeter" ]; then
         echo "jmeter extension path (~/.bzt/jmeter-taurus/**/ext) not found - cannot install bundled plugins"
         exit 1
       fi
-      cp -v $BUNDLED_PLUGIN_DIR/*.jar $JMETER_EXT_PATH
+      cp -v $BUNDLED_PLUGIN_DIR/*.jar $JMETER_EXT_PATH || true
     fi
   fi
 fi
 
-#Download python script
-if [ -z "$IPNETWORK" ]; then
-    python3 -u $SCRIPT $TIMEOUT &
-    pypid=$!
-    wait $pypid
-    pypid=0
-else 
-    python3 -u $SCRIPT $IPNETWORK $IPHOSTS
+: ${IPNETWORK=''}
+: ${SCRIPT=''}
+
+if [ -n "$SCRIPT" ]; then
+  #Download python script
+  if [ -z "$IPNETWORK" ]; then
+      python3 -u $SCRIPT $TIMEOUT &
+      pypid=$!
+      wait $pypid
+      pypid=0
+  else 
+      python3 -u $SCRIPT $IPNETWORK $IPHOSTS
+  fi
 fi
 
 echo "Running test"
@@ -105,27 +109,30 @@ CALCULATED_DURATION=`cat result.tmp | grep -m1 "Test duration" | awk -F ' ' '{ p
 # every file goes under $TEST_ID/$PREFIX/$UUID to distinguish the result correctly
 if [ "$TEST_TYPE" != "simple" ]; then
   if [ "$FILE_TYPE" != "zip" ]; then
-    cat $TEST_ID.$EXT | grep filename > results.txt
+    cat $TEST_ID.$EXT | grep filename > results.txt || true
   else
-    cat $TEST_SCRIPT | grep filename > results.txt
+    cat $TEST_SCRIPT | grep filename > results.txt || true
   fi
-  sed -i -e 's/<stringProp name="filename">//g' results.txt
-  sed -i -e 's/<\/stringProp>//g' results.txt
-  sed -i -e 's/ //g' results.txt
 
-  echo "Files to upload as results"
-  cat results.txt
-  
-  files=(`cat results.txt`)
-  for f in "${files[@]}"; do
-    p="s3://$S3_BUCKET/results/$TEST_ID/${TYPE_NAME}_Result/$PREFIX/$UUID/$f"
-    if [[ $f = /* ]]; then
-      p="s3://$S3_BUCKET/results/$TEST_ID/${TYPE_NAME}_Result/$PREFIX/$UUID$f"
-    fi
+  if [ -f results.txt ]; then
+    sed -i -e 's/<stringProp name="filename">//g' results.txt
+    sed -i -e 's/<\/stringProp>//g' results.txt
+    sed -i -e 's/ //g' results.txt
 
-    echo "Uploading $p"
-    aws s3 cp $f $p
-  done
+    echo "Files to upload as results"
+    cat results.txt
+    
+    files=(`cat results.txt`)
+    for f in "${files[@]}"; do
+      p="s3://$S3_BUCKET/results/$TEST_ID/${TYPE_NAME}_Result/$PREFIX/$UUID/$f"
+      if [[ $f = /* ]]; then
+        p="s3://$S3_BUCKET/results/$TEST_ID/${TYPE_NAME}_Result/$PREFIX/$UUID$f"
+      fi
+
+      echo "Uploading $p"
+      aws s3 cp $f $p || true  # Don't fail the build if a file upload fails
+    done
+  fi
 fi
 
 if [ -f /tmp/artifacts/results.xml ]; then
@@ -139,15 +146,15 @@ if [ -f /tmp/artifacts/results.xml ]; then
 
   echo "Uploading results, bzt log, and JMeter log, out, and err files"
   aws s3 cp /tmp/artifacts/results.xml s3://$S3_BUCKET/results/${TEST_ID}/${PREFIX}-${UUID}-${AWS_REGION}.xml
-  aws s3 cp /tmp/artifacts/bzt.log s3://$S3_BUCKET/results/${TEST_ID}/bzt-${PREFIX}-${UUID}-${AWS_REGION}.log
+  aws s3 cp /tmp/artifacts/bzt.log s3://$S3_BUCKET/results/${TEST_ID}/bzt-${PREFIX}-${UUID}-${AWS_REGION}.log || true  # Don't fail the build if the log upload fails
   if [ -z "$LOG_FILE" ]; then
-    aws s3 cp /tmp/artifacts/$LOG_FILE s3://$S3_BUCKET/results/${TEST_ID}/jmeter-${PREFIX}-${UUID}-${AWS_REGION}.log
+    aws s3 cp /tmp/artifacts/$LOG_FILE s3://$S3_BUCKET/results/${TEST_ID}/${TEST_TYPE}-${PREFIX}-${UUID}-${AWS_REGION}.log
   fi
   if [ -z "$OUT_FILE" ]; then
-    aws s3 cp /tmp/artifacts/$OUT_FILE s3://$S3_BUCKET/results/${TEST_ID}/jmeter-${PREFIX}-${UUID}-${AWS_REGION}.out
+    aws s3 cp /tmp/artifacts/$OUT_FILE s3://$S3_BUCKET/results/${TEST_ID}/${TEST_TYPE}-${PREFIX}-${UUID}-${AWS_REGION}.out
   fi
   if [ -z "$ERR_FILE" ]; then
-    aws s3 cp /tmp/artifacts/$ERR_FILE s3://$S3_BUCKET/results/${TEST_ID}/jmeter-${PREFIX}-${UUID}-${AWS_REGION}.err
+    aws s3 cp /tmp/artifacts/$ERR_FILE s3://$S3_BUCKET/results/${TEST_ID}/${TEST_TYPE}-${PREFIX}-${UUID}-${AWS_REGION}.err
   fi
 else
   echo "An error occurred while the test was running."
