@@ -6,9 +6,11 @@ import { Construct } from "constructs";
 
 export interface ConsoleConfigProps {
   readonly apiEndpoint: string;
+  readonly cloudFrontDomainName: string;
   readonly cognitoIdentityPool: string;
   readonly cognitoUserPool: string;
   readonly cognitoUserPoolClient: string;
+  readonly cognitoDomainName: string;
   readonly consoleBucketName: string;
   readonly scenariosBucket: string;
   readonly sourceCodeBucketName: string;
@@ -140,7 +142,13 @@ export class CustomResourcesConstruct extends Construct {
       aws_cognito_identity_pool_id: '${props.cognitoIdentityPool}',
       aws_user_pools_id: '${props.cognitoUserPool}',
       aws_user_pools_web_client_id: '${props.cognitoUserPoolClient}',
-      oauth: {},
+      oauth: {
+          domain: '${props.cognitoDomainName}.auth.${Aws.REGION}.amazoncognito.com',
+          scope: ['email', 'openid', 'aws.cognito.signin.user.admin', 'profile'],
+          redirectSignIn: 'https://${props.cloudFrontDomainName}/',
+          redirectSignOut: 'https://${props.cloudFrontDomainName}/',
+          responseType: 'code'
+      },
       aws_cloud_logic_custom: [
           {
               name: 'dlts',

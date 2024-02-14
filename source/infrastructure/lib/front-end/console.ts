@@ -4,6 +4,8 @@
 import { CloudFrontToS3 } from "@aws-solutions-constructs/aws-cloudfront-s3";
 import { Bucket, IBucket } from "aws-cdk-lib/aws-s3";
 import { Construct } from "constructs";
+import { Certificate } from "aws-cdk-lib/aws-certificatemanager";
+import { CfnDistribution } from "aws-cdk-lib/aws-cloudfront";
 
 /**
  * @interface DLTConsoleConstructProps
@@ -14,6 +16,14 @@ export interface DLTConsoleConstructProps {
   readonly s3LogsBucket: Bucket;
   // Solution ID
   readonly solutionId: string;
+  // CloudFrontAliases:
+  readonly cloudFrontAliases: any;
+  // CloudFront Certificate ARN
+  readonly cloudFrontCertificateArn: string;
+  // CloudFront sslSupportMethod
+  readonly sslSupportMethod: string;
+  // CloudFront default certificate
+  readonly cloudFrontDefaultCertificate: string;
 }
 
 /**
@@ -28,6 +38,8 @@ export class DLTConsoleConstruct extends Construct {
 
   constructor(scope: Construct, id: string, props: DLTConsoleConstructProps) {
     super(scope, id);
+
+    const certificate = Certificate.fromCertificateArn(this, "Certificate", props.cloudFrontCertificateArn);
 
     const dltS3CloudFrontDist = new CloudFrontToS3(this, "DLTCloudFrontToS3", {
       bucketProps: {
@@ -44,9 +56,16 @@ export class DLTConsoleConstruct extends Construct {
         httpVersion: "http2",
         logBucket: props.s3LogsBucket,
         logFilePrefix: "cloudfront-logs/",
+        domainNames: props.cloudFrontAliases,
+        certificate,
+        sslSupportMethod: props.sslSupportMethod,
       },
       insertHttpSecurityHeaders: false,
     });
+    (dltS3CloudFrontDist.cloudFrontWebDistribution.node.defaultChild as CfnDistribution).addPropertyOverride(
+      "DistributionConfig.ViewerCertificate.CloudFrontDefaultCertificate",
+      props.cloudFrontDefaultCertificate
+    );
 
     this.cloudFrontDomainName = dltS3CloudFrontDist.cloudFrontWebDistribution.domainName;
     this.consoleBucket = dltS3CloudFrontDist.s3BucketInterface;

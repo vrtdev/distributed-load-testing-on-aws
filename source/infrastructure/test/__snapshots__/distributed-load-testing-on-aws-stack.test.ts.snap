@@ -4,6 +4,35 @@ exports[`Distributed Load Testing stack test 1`] = `
 {
   "AWSTemplateFormatVersion": "2010-09-09",
   "Conditions": {
+    "BoolAliases": {
+      "Fn::Not": [
+        {
+          "Fn::Equals": [
+            {
+              "Fn::Join": [
+                "",
+                {
+                  "Ref": "CloudFrontAliases",
+                },
+              ],
+            },
+            "",
+          ],
+        },
+      ],
+    },
+    "BoolCloudFrontCertificate": {
+      "Fn::Not": [
+        {
+          "Fn::Equals": [
+            {
+              "Ref": "CloudFrontCertificate",
+            },
+            "",
+          ],
+        },
+      ],
+    },
     "BoolExistingVPC": {
       "Fn::Not": [
         {
@@ -20,6 +49,14 @@ exports[`Distributed Load Testing stack test 1`] = `
       "Fn::Equals": [
         {
           "Ref": "ExistingVPCId",
+        },
+        "",
+      ],
+    },
+    "DLTCognitoAuthcreateUserPoolResource406911CC": {
+      "Fn::Equals": [
+        {
+          "Ref": "ExistingCognitoPoolId",
         },
         "",
       ],
@@ -191,6 +228,24 @@ exports[`Distributed Load Testing stack test 1`] = `
             "EgressCidr",
           ],
         },
+        {
+          "Label": {
+            "default": "Enter value here to use your own existing Cognito Pool",
+          },
+          "Parameters": [
+            "ExistingCognitoPoolId",
+            "DomainLabel",
+          ],
+        },
+        {
+          "Label": {
+            "default": "CloudFront configuration. Only enter values here if you are going to configure your own DNS record",
+          },
+          "Parameters": [
+            "CloudFrontAliases",
+            "CloudFrontCertificate",
+          ],
+        },
       ],
       "ParameterLabels": {
         "AdminEmail": {
@@ -199,8 +254,14 @@ exports[`Distributed Load Testing stack test 1`] = `
         "AdminName": {
           "default": "* Console Administrator Name",
         },
+        "DomainLabel": {
+          "default": "The first label of the Cognito User Pool Domain. Ex: \`mydomain\`",
+        },
         "EgressCidr": {
           "default": "AWS Fargate SecurityGroup CIDR Block",
+        },
+        "ExistingCognitoPoolId": {
+          "default": "The ID of an existing Cognito User Pool in this region. Ex: \`us-east-1_123456789\`",
         },
         "ExistingSubnetA": {
           "default": "The ID of a subnet within the existing VPC. Ex: \`subnet-7h8i9j0k\`",
@@ -226,6 +287,19 @@ exports[`Distributed Load Testing stack test 1`] = `
   "Outputs": {
     "Console": {
       "Description": "Console URL",
+      "Export": {
+        "Name": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "AWS::StackName",
+              },
+              "-ConsoleURL",
+            ],
+          ],
+        },
+      },
       "Value": {
         "Fn::GetAtt": [
           "DLTConsoleResourcesDLTCloudFrontToS3CloudFrontDistribution3EF384B4",
@@ -311,6 +385,27 @@ exports[`Distributed Load Testing stack test 1`] = `
       "MinLength": 4,
       "Type": "String",
     },
+    "CloudFrontAliases": {
+      "AllowedPattern": "(^$|^[a-zA-Z0-9-.]+$)",
+      "ConstraintDescription": "The domain name can only contain alphanumeric characters, \`-\`, and \`.\`.",
+      "Default": "",
+      "Description": "Comma separated list of domain names to support. They must be included in the ACM certificate you are using",
+      "Type": "CommaDelimitedList",
+    },
+    "CloudFrontCertificate": {
+      "AllowedPattern": "(^$|.*us-east-1.*)",
+      "ConstraintDescription": "Only certificates in us-east-1 are supported.",
+      "Default": "",
+      "Description": "ARN of the ACM certificate to use. Can be left empty if CloudFrontAliases is empty",
+      "Type": "String",
+    },
+    "DomainLabel": {
+      "AllowedPattern": "[a-zA-Z0-9-]+",
+      "Description": "First label of the UserPool Domain",
+      "MaxLength": 16,
+      "MinLength": 1,
+      "Type": "String",
+    },
     "EgressCidr": {
       "AllowedPattern": "(?:^$|(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2}))",
       "ConstraintDescription": "The Egress CIDR block must be a valid IP CIDR range of the form x.x.x.x/x.",
@@ -318,6 +413,10 @@ exports[`Distributed Load Testing stack test 1`] = `
       "Description": "CIDR Block to restrict the ECS container outbound access",
       "MaxLength": 18,
       "MinLength": 9,
+      "Type": "String",
+    },
+    "ExistingCognitoPoolId": {
+      "Description": "Existing Cognito Pool ID",
       "Type": "String",
     },
     "ExistingSubnetA": {
@@ -1891,7 +1990,15 @@ exports[`Distributed Load Testing stack test 1`] = `
           },
         ],
         "UserPoolId": {
-          "Ref": "DLTCognitoAuthDLTUserPoolFA41A712",
+          "Fn::If": [
+            "DLTCognitoAuthcreateUserPoolResource406911CC",
+            {
+              "Ref": "DLTCognitoAuthDLTUserPoolFA41A712",
+            },
+            {
+              "Ref": "ExistingCognitoPoolId",
+            },
+          ],
         },
         "Username": {
           "Ref": "AdminName",
@@ -2167,9 +2274,26 @@ exports[`Distributed Load Testing stack test 1`] = `
               "Ref": "DLTCognitoAuthDLTUserPoolClientA2F8B2DB",
             },
             "ProviderName": {
-              "Fn::GetAtt": [
-                "DLTCognitoAuthDLTUserPoolFA41A712",
-                "ProviderName",
+              "Fn::Join": [
+                "",
+                [
+                  "cognito-idp.",
+                  {
+                    "Ref": "AWS::Region",
+                  },
+                  ".amazonaws.com/",
+                  {
+                    "Fn::If": [
+                      "DLTCognitoAuthcreateUserPoolResource406911CC",
+                      {
+                        "Ref": "DLTCognitoAuthDLTUserPoolFA41A712",
+                      },
+                      {
+                        "Ref": "ExistingCognitoPoolId",
+                      },
+                    ],
+                  },
+                ],
               ],
             },
           },
@@ -2180,19 +2304,44 @@ exports[`Distributed Load Testing stack test 1`] = `
     "DLTCognitoAuthDLTUserPoolClientA2F8B2DB": {
       "Properties": {
         "AllowedOAuthFlows": [
-          "implicit",
           "code",
         ],
         "AllowedOAuthFlowsUserPoolClient": true,
         "AllowedOAuthScopes": [
-          "profile",
-          "phone",
           "email",
           "openid",
+          "profile",
           "aws.cognito.signin.user.admin",
         ],
         "CallbackURLs": [
-          "https://example.com",
+          {
+            "Fn::Join": [
+              "",
+              [
+                "https://",
+                {
+                  "Fn::If": [
+                    "BoolAliases",
+                    {
+                      "Fn::Select": [
+                        0,
+                        {
+                          "Ref": "CloudFrontAliases",
+                        },
+                      ],
+                    },
+                    {
+                      "Fn::GetAtt": [
+                        "DLTConsoleResourcesDLTCloudFrontToS3CloudFrontDistribution3EF384B4",
+                        "DomainName",
+                      ],
+                    },
+                  ],
+                },
+                "/",
+              ],
+            ],
+          },
         ],
         "ClientName": {
           "Fn::Join": [
@@ -2206,15 +2355,53 @@ exports[`Distributed Load Testing stack test 1`] = `
           ],
         },
         "GenerateSecret": false,
+        "LogoutURLs": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "https://",
+                {
+                  "Fn::If": [
+                    "BoolAliases",
+                    {
+                      "Fn::Select": [
+                        0,
+                        {
+                          "Ref": "CloudFrontAliases",
+                        },
+                      ],
+                    },
+                    {
+                      "Fn::GetAtt": [
+                        "DLTConsoleResourcesDLTCloudFrontToS3CloudFrontDistribution3EF384B4",
+                        "DomainName",
+                      ],
+                    },
+                  ],
+                },
+                "/",
+              ],
+            ],
+          },
+        ],
         "RefreshTokenValidity": 1440,
         "SupportedIdentityProviders": [
-          "COGNITO",
+          "AzureAD",
         ],
         "TokenValidityUnits": {
           "RefreshToken": "minutes",
         },
         "UserPoolId": {
-          "Ref": "DLTCognitoAuthDLTUserPoolFA41A712",
+          "Fn::If": [
+            "DLTCognitoAuthcreateUserPoolResource406911CC",
+            {
+              "Ref": "DLTCognitoAuthDLTUserPoolFA41A712",
+            },
+            {
+              "Ref": "ExistingCognitoPoolId",
+            },
+          ],
         },
         "WriteAttributes": [
           "address",
@@ -2225,6 +2412,7 @@ exports[`Distributed Load Testing stack test 1`] = `
       "Type": "AWS::Cognito::UserPoolClient",
     },
     "DLTCognitoAuthDLTUserPoolFA41A712": {
+      "Condition": "DLTCognitoAuthcreateUserPoolResource406911CC",
       "DeletionPolicy": "Delete",
       "Properties": {
         "AccountRecoverySetting": {
@@ -2259,9 +2447,22 @@ exports[`Distributed Load Testing stack test 1`] = `
                 <p>
                     Console: <strong>https://",
                   {
-                    "Fn::GetAtt": [
-                      "DLTConsoleResourcesDLTCloudFrontToS3CloudFrontDistribution3EF384B4",
-                      "DomainName",
+                    "Fn::If": [
+                      "BoolAliases",
+                      {
+                        "Fn::Select": [
+                          0,
+                          {
+                            "Ref": "CloudFrontAliases",
+                          },
+                        ],
+                      },
+                      {
+                        "Fn::GetAtt": [
+                          "DLTConsoleResourcesDLTCloudFrontToS3CloudFrontDistribution3EF384B4",
+                          "DomainName",
+                        ],
+                      },
                     ],
                   },
                   "/</strong>
@@ -2608,6 +2809,17 @@ exports[`Distributed Load Testing stack test 1`] = `
       },
       "Properties": {
         "DistributionConfig": {
+          "Aliases": {
+            "Fn::If": [
+              "BoolAliases",
+              {
+                "Ref": "CloudFrontAliases",
+              },
+              {
+                "Ref": "AWS::NoValue",
+              },
+            ],
+          },
           "Comment": "Website distribution for the Distributed Load Testing solution",
           "CustomErrorResponses": [
             {
@@ -2658,6 +2870,38 @@ exports[`Distributed Load Testing stack test 1`] = `
               "S3OriginConfig": {},
             },
           ],
+          "ViewerCertificate": {
+            "AcmCertificateArn": {
+              "Fn::If": [
+                "BoolCloudFrontCertificate",
+                {
+                  "Ref": "CloudFrontCertificate",
+                },
+                {
+                  "Ref": "AWS::NoValue",
+                },
+              ],
+            },
+            "CloudFrontDefaultCertificate": {
+              "Fn::If": [
+                "BoolCloudFrontCertificate",
+                {
+                  "Ref": "AWS::NoValue",
+                },
+                true,
+              ],
+            },
+            "MinimumProtocolVersion": "TLSv1.2_2021",
+            "SslSupportMethod": {
+              "Fn::If": [
+                "BoolCloudFrontCertificate",
+                "sni-only",
+                {
+                  "Ref": "AWS::NoValue",
+                },
+              ],
+            },
+          },
         },
         "Tags": [
           {
@@ -3287,7 +3531,15 @@ exports[`Distributed Load Testing stack test 1`] = `
               "',
       aws_user_pools_id: '",
               {
-                "Ref": "DLTCognitoAuthDLTUserPoolFA41A712",
+                "Fn::If": [
+                  "DLTCognitoAuthcreateUserPoolResource406911CC",
+                  {
+                    "Ref": "DLTCognitoAuthDLTUserPoolFA41A712",
+                  },
+                  {
+                    "Ref": "ExistingCognitoPoolId",
+                  },
+                ],
               },
               "',
       aws_user_pools_web_client_id: '",
@@ -3295,7 +3547,61 @@ exports[`Distributed Load Testing stack test 1`] = `
                 "Ref": "DLTCognitoAuthDLTUserPoolClientA2F8B2DB",
               },
               "',
-      oauth: {},
+      oauth: {
+          domain: '",
+              {
+                "Ref": "DomainLabel",
+              },
+              ".auth.",
+              {
+                "Ref": "AWS::Region",
+              },
+              ".amazoncognito.com',
+          scope: ['email', 'openid', 'aws.cognito.signin.user.admin', 'profile'],
+          redirectSignIn: 'https://",
+              {
+                "Fn::If": [
+                  "BoolAliases",
+                  {
+                    "Fn::Select": [
+                      0,
+                      {
+                        "Ref": "CloudFrontAliases",
+                      },
+                    ],
+                  },
+                  {
+                    "Fn::GetAtt": [
+                      "DLTConsoleResourcesDLTCloudFrontToS3CloudFrontDistribution3EF384B4",
+                      "DomainName",
+                    ],
+                  },
+                ],
+              },
+              "/',
+          redirectSignOut: 'https://",
+              {
+                "Fn::If": [
+                  "BoolAliases",
+                  {
+                    "Fn::Select": [
+                      0,
+                      {
+                        "Ref": "CloudFrontAliases",
+                      },
+                    ],
+                  },
+                  {
+                    "Fn::GetAtt": [
+                      "DLTConsoleResourcesDLTCloudFrontToS3CloudFrontDistribution3EF384B4",
+                      "DomainName",
+                    ],
+                  },
+                ],
+              },
+              "/',
+          responseType: 'code'
+      },
       aws_cloud_logic_custom: [
           {
               name: 'dlts',
@@ -4868,7 +5174,7 @@ exports[`Distributed Load Testing stack test 1`] = `
           "Fn::Join": [
             "",
             [
-              "{"StartAt":"Regions for testing","States":{"Regions for testing":{"Type":"Map","ResultPath":null,"Next":"Parse result","InputPath":"$","Parameters":{"testTaskConfig.$":"$$.Map.Item.Value","testId.$":"$.testId","testType.$":"$.testType","fileType.$":"$.fileType","showLive.$":"$.showLive","testDuration.$":"$.testDuration","prefix.$":"$.prefix"},"Iterator":{"StartAt":"Check running tests","States":{"Check running tests":{"Next":"No running tests","Retry":[{"ErrorEquals":["Lambda.ClientExecutionTimeoutException","Lambda.ServiceException","Lambda.AWSLambdaException","Lambda.SdkClientException"],"IntervalSeconds":2,"MaxAttempts":6,"BackoffRate":2}],"Type":"Task","InputPath":"$","OutputPath":"$.Payload","Resource":"arn:",
+              "{"StartAt":"Regions for testing","States":{"Regions for testing":{"Type":"Map","ResultPath":null,"Next":"Parse result","InputPath":"$","Parameters":{"testTaskConfig.$":"$$.Map.Item.Value","testId.$":"$.testId","testType.$":"$.testType","fileType.$":"$.fileType","showLive.$":"$.showLive","testDuration.$":"$.testDuration","prefix.$":"$.prefix"},"ItemsPath":"$.testTaskConfig","Iterator":{"StartAt":"Check running tests","States":{"Check running tests":{"Next":"No running tests","Retry":[{"ErrorEquals":["Lambda.ClientExecutionTimeoutException","Lambda.ServiceException","Lambda.AWSLambdaException","Lambda.SdkClientException"],"IntervalSeconds":2,"MaxAttempts":6,"BackoffRate":2}],"Type":"Task","InputPath":"$","OutputPath":"$.Payload","Resource":"arn:",
               {
                 "Ref": "AWS::Partition",
               },
@@ -4934,7 +5240,7 @@ exports[`Distributed Load Testing stack test 1`] = `
                   "Arn",
                 ],
               },
-              "","Payload.$":"$"}},"Wait 1 minute - task status":{"Type":"Wait","Comment":"Wait 1 minute to check task status again","Seconds":60,"Next":"Check task status"},"Are all tasks done?":{"Type":"Choice","Choices":[{"Variable":"$.isRunning","BooleanEquals":false,"Next":"Map End"}],"Default":"Wait 1 minute - task status"},"Map End":{"Type":"Pass","End":true}}},"ItemsPath":"$.testTaskConfig"},"Parse result":{"Next":"Done","Retry":[{"ErrorEquals":["Lambda.ClientExecutionTimeoutException","Lambda.ServiceException","Lambda.AWSLambdaException","Lambda.SdkClientException"],"IntervalSeconds":2,"MaxAttempts":6,"BackoffRate":2}],"Type":"Task","Resource":"arn:",
+              "","Payload.$":"$"}},"Wait 1 minute - task status":{"Type":"Wait","Comment":"Wait 1 minute to check task status again","Seconds":60,"Next":"Check task status"},"Are all tasks done?":{"Type":"Choice","Choices":[{"Variable":"$.isRunning","BooleanEquals":false,"Next":"Map End"}],"Default":"Wait 1 minute - task status"},"Map End":{"Type":"Pass","End":true}}}},"Parse result":{"Next":"Done","Retry":[{"ErrorEquals":["Lambda.ClientExecutionTimeoutException","Lambda.ServiceException","Lambda.AWSLambdaException","Lambda.SdkClientException"],"IntervalSeconds":2,"MaxAttempts":6,"BackoffRate":2}],"Type":"Task","Resource":"arn:",
               {
                 "Ref": "AWS::Partition",
               },
@@ -5057,20 +5363,6 @@ exports[`Distributed Load Testing stack test 1`] = `
         "PolicyDocument": {
           "Statement": [
             {
-              "Action": [
-                "logs:CreateLogDelivery",
-                "logs:GetLogDelivery",
-                "logs:UpdateLogDelivery",
-                "logs:DeleteLogDelivery",
-                "logs:ListLogDeliveries",
-                "logs:PutResourcePolicy",
-                "logs:DescribeResourcePolicies",
-                "logs:DescribeLogGroups",
-              ],
-              "Effect": "Allow",
-              "Resource": "*",
-            },
-            {
               "Action": "lambda:InvokeFunction",
               "Effect": "Allow",
               "Resource": [
@@ -5173,6 +5465,20 @@ exports[`Distributed Load Testing stack test 1`] = `
                   ],
                 },
               ],
+            },
+            {
+              "Action": [
+                "logs:CreateLogDelivery",
+                "logs:GetLogDelivery",
+                "logs:UpdateLogDelivery",
+                "logs:DeleteLogDelivery",
+                "logs:ListLogDeliveries",
+                "logs:PutResourcePolicy",
+                "logs:DescribeResourcePolicies",
+                "logs:DescribeLogGroups",
+              ],
+              "Effect": "Allow",
+              "Resource": "*",
             },
           ],
           "Version": "2012-10-17",
@@ -5955,6 +6261,37 @@ exports[`Distributed Load Testing stack test 1`] = `
     },
   },
   "Rules": {
+    "CloudFrontAliasRule": {
+      "Assertions": [
+        {
+          "Assert": {
+            "Fn::Not": [
+              {
+                "Fn::Equals": [
+                  {
+                    "Ref": "CloudFrontCertificate",
+                  },
+                  "",
+                ],
+              },
+            ],
+          },
+          "AssertDescription": "If you are going to use CloudFrontAliases, you need to provide the ACM certificate ARN",
+        },
+      ],
+      "RuleCondition": {
+        "Fn::Not": [
+          {
+            "Fn::EachMemberEquals": [
+              {
+                "Ref": "CloudFrontAliases",
+              },
+              "",
+            ],
+          },
+        ],
+      },
+    },
     "ExistingVPCRule": {
       "Assertions": [
         {

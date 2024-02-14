@@ -2,6 +2,14 @@
 
 exports[`DLT API Test 1`] = `
 {
+  "Conditions": {
+    "BoolCloudFrontCertificate": {
+      "Fn::Equals": [
+        "something",
+        "false",
+      ],
+    },
+  },
   "Resources": {
     "TestConsoleResourcesDLTCloudFrontToS3CloudFrontDistribution4534927E": {
       "Metadata": {
@@ -16,6 +24,9 @@ exports[`DLT API Test 1`] = `
       },
       "Properties": {
         "DistributionConfig": {
+          "Aliases": [
+            "www.example.com",
+          ],
           "Comment": "Website distribution for the Distributed Load Testing solution",
           "CustomErrorResponses": [
             {
@@ -66,6 +77,16 @@ exports[`DLT API Test 1`] = `
               "S3OriginConfig": {},
             },
           ],
+          "ViewerCertificate": {
+            "AcmCertificateArn": {
+              "Ref": "AWS::NoValue",
+            },
+            "CloudFrontDefaultCertificate": "true",
+            "MinimumProtocolVersion": "TLSv1.2_2021",
+            "SslSupportMethod": {
+              "Ref": "AWS::NoValue",
+            },
+          },
         },
       },
       "Type": "AWS::CloudFront::Distribution",

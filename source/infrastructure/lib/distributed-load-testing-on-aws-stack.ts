@@ -167,6 +167,38 @@ export class DLTStack extends Stack {
       constraintDescription: "The Egress CIDR block must be a valid IP CIDR range of the form x.x.x.x/x.",
     });
 
+    const existingCognitoPoolId = new CfnParameter(this, "ExistingCognitoPoolId", {
+      type: "String",
+      description: "Existing Cognito Pool ID",
+    });
+
+    // CloudFrontAliases
+    const cloudFrontAliases = new CfnParameter(this, "CloudFrontAliases", {
+      type: "CommaDelimitedList",
+      default: "",
+      description:
+        "Comma separated list of domain names to support. They must be included in the ACM certificate you are using",
+      allowedPattern: "(^$|^[a-zA-Z0-9-.]+$)",
+      constraintDescription: "The domain name can only contain alphanumeric characters, `-`, and `.`.",
+    });
+
+    // CloudFrontCertificate
+    const cloudFrontCertificate = new CfnParameter(this, "CloudFrontCertificate", {
+      type: "String",
+      default: "",
+      description: "ARN of the ACM certificate to use. Can be left empty if CloudFrontAliases is empty",
+      allowedPattern: "(^$|.*us-east-1.*)",
+      constraintDescription: "Only certificates in us-east-1 are supported.",
+    });
+
+    const domainLabel = new CfnParameter(this, "DomainLabel", {
+      type: "String",
+      description: "First label of the UserPool Domain",
+      minLength: 1,
+      maxLength: 16,
+      allowedPattern: "[a-zA-Z0-9-]+",
+    });
+
     // CloudFormation metadata
     this.templateOptions.metadata = {
       "AWS::CloudFormation::Interface": {
@@ -188,6 +220,17 @@ export class DLTStack extends Stack {
               egressCidrBlock.logicalId,
             ],
           },
+          {
+            Label: { default: "Enter value here to use your own existing Cognito Pool" },
+            Parameters: [existingCognitoPoolId.logicalId, domainLabel.logicalId],
+          },
+          {
+            Label: {
+              default:
+                "CloudFront configuration. Only enter values here if you are going to configure your own DNS record",
+            },
+            Parameters: [cloudFrontAliases.logicalId, cloudFrontCertificate.logicalId],
+          },
         ],
         ParameterLabels: {
           [adminName.logicalId]: { default: "* Console Administrator Name" },
@@ -199,6 +242,10 @@ export class DLTStack extends Stack {
           [subnetACidrBlock.logicalId]: { default: "AWS Fargate Subnet A CIDR Block" },
           [subnetBCidrBlock.logicalId]: { default: "AWS Fargate Subnet A CIDR Block" },
           [egressCidrBlock.logicalId]: { default: "AWS Fargate SecurityGroup CIDR Block" },
+          [existingCognitoPoolId.logicalId]: {
+            default: "The ID of an existing Cognito User Pool in this region. Ex: `us-east-1_123456789`",
+          },
+          [domainLabel.logicalId]: { default: "The first label of the Cognito User Pool Domain. Ex: `mydomain`" },
         },
       },
     };
@@ -218,6 +265,17 @@ export class DLTStack extends Stack {
           assert: Fn.conditionNot(Fn.conditionEquals(existingSubnetB.value, "")),
           assertDescription:
             "If an existing VPC Id is provided, 2 subnet ids need to be provided as well. You neglected to enter the second subnet id",
+        },
+      ],
+    });
+    // If the user enters a value for a CloudFront Alias,
+    // Require the customer to fill out values for the ACM certificate
+    new CfnRule(this, "CloudFrontAliasRule", {
+      ruleCondition: Fn.conditionNot(Fn.conditionEachMemberEquals(cloudFrontAliases.valueAsList, "")),
+      assertions: [
+        {
+          assert: Fn.conditionNot(Fn.conditionEquals(cloudFrontCertificate.value, "")),
+          assertDescription: "If you are going to use CloudFrontAliases, you need to provide the ACM certificate ARN",
         },
       ],
     });
@@ -264,6 +322,14 @@ export class DLTStack extends Stack {
       expression: Fn.conditionNot(Fn.conditionEquals(existingVpcId.valueAsString, "")),
     });
 
+    const usingCloudFrontCertificate = new CfnCondition(this, "BoolCloudFrontCertificate", {
+      expression: Fn.conditionNot(Fn.conditionEquals(cloudFrontCertificate.valueAsString, "")),
+    });
+
+    const hasAliases = new CfnCondition(this, "BoolAliases", {
+      expression: Fn.conditionNot(Fn.conditionEquals(Fn.join("", cloudFrontAliases.valueAsList), "")),
+    });
+
     // Fargate VPC resources
     const fargateVpc = new FargateVpcConstruct(this, "DLTVpc", {
       solutionId,
@@ -298,9 +364,25 @@ export class DLTStack extends Stack {
 
     const s3LogsBucket = commonResources.s3LogsBucket();
 
+    const cloudFrontAliasesList = Fn.conditionIf(hasAliases.logicalId, cloudFrontAliases, Aws.NO_VALUE).toString();
+    const cloudFrontCertificateArn = Fn.conditionIf(
+      usingCloudFrontCertificate.logicalId,
+      cloudFrontCertificate.valueAsString,
+      Aws.NO_VALUE
+    ).toString();
+    const sslSupportMethod = Fn.conditionIf(usingCloudFrontCertificate.logicalId, "sni-only", Aws.NO_VALUE).toString();
+    const cloudFrontDefaultCertificate = Fn.conditionIf(
+      usingCloudFrontCertificate.logicalId,
+      Aws.NO_VALUE,
+      true
+    ).toString();
     const dltConsole = new DLTConsoleConstruct(this, "DLTConsoleResources", {
       s3LogsBucket,
       solutionId,
+      cloudFrontAliases: cloudFrontAliasesList,
+      cloudFrontCertificateArn: cloudFrontCertificateArn,
+      sslSupportMethod: sslSupportMethod,
+      cloudFrontDefaultCertificate: cloudFrontDefaultCertificate,
     });
 
     const dltStorage = new ScenarioTestRunnerStorageConstruct(this, "DLTTestRunnerStorage", {
@@ -406,12 +488,18 @@ export class DLTStack extends Stack {
       uuid,
     });
 
+    const cloudFrontDomainName = Fn.conditionIf(
+      hasAliases.logicalId,
+      Fn.select(0, cloudFrontAliases.valueAsList),
+      dltConsole.cloudFrontDomainName
+    ).toString();
     const cognitoResources = new CognitoAuthConstruct(this, "DLTCognitoAuth", {
       adminEmail: adminEmail.valueAsString,
       adminName: adminName.valueAsString,
       apiId: dltApi.apiId,
-      cloudFrontDomainName: dltConsole.cloudFrontDomainName,
+      cloudFrontDomainName: cloudFrontDomainName,
       scenariosBucketArn: dltStorage.scenariosBucket.bucketArn,
+      existingCognitoPoolId: existingCognitoPoolId.valueAsString,
     });
 
     customResources.copyConsoleFiles({
@@ -441,9 +529,11 @@ export class DLTStack extends Stack {
 
     customResources.consoleConfig({
       apiEndpoint: dltApi.apiEndpointPath,
+      cloudFrontDomainName: cloudFrontDomainName,
       cognitoIdentityPool: cognitoResources.cognitoIdentityPoolId,
       cognitoUserPool: cognitoResources.cognitoUserPoolId,
       cognitoUserPoolClient: cognitoResources.cognitoUserPoolClientId,
+      cognitoDomainName: domainLabel.valueAsString,
       consoleBucketName: dltConsole.consoleBucket.bucketName,
       scenariosBucket: dltStorage.scenariosBucket.bucketName,
       sourceCodeBucketName: sourceCodeBucket,
@@ -483,6 +573,7 @@ export class DLTStack extends Stack {
     new CfnOutput(this, "Console", {
       description: "Console URL",
       value: dltConsole.cloudFrontDomainName,
+      exportName: `${Aws.STACK_NAME}-ConsoleURL`,
     });
     new CfnOutput(this, "SolutionUUID", {
       description: "Solution UUID",

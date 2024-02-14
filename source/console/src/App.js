@@ -168,4 +168,4 @@ class App extends React.Component {
   }
 }
 
-export default withAuthenticator(App, false);
+export default withAuthenticator(App);
