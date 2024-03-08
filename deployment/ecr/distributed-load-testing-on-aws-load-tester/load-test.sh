@@ -114,7 +114,10 @@ if [ "$TEST_TYPE" != "simple" ]; then
     cat $TEST_SCRIPT | grep filename > results.txt || true
   fi
 
-  if [ -f results.txt ]; then
+  # Bash's -f flag does strange validation operations on the file,
+  # which resulted in exit code 1 even if the file exists,
+  # so we use test -f, which behaves as expected.
+  if [ test -f results.txt ]; then
     sed -i -e 's/<stringProp name="filename">//g' results.txt
     sed -i -e 's/<\/stringProp>//g' results.txt
     sed -i -e 's/ //g' results.txt
@@ -135,7 +138,10 @@ if [ "$TEST_TYPE" != "simple" ]; then
   fi
 fi
 
-if [ -f /tmp/artifacts/results.xml ]; then
+# Bash's -f flag does strange validation operations on the file,
+# which resulted in exit code 1 even if the file exists,
+# so we use test -f, which behaves as expected.
+if [ test -f /tmp/artifacts/results.xml ]; then
   echo "Validating Test Duration"
   TEST_DURATION=`xmlstarlet sel -t -v "/FinalStatus/TestDuration" /tmp/artifacts/results.xml`
 
