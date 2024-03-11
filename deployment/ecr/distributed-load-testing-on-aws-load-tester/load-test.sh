@@ -50,7 +50,7 @@ if [ "$TEST_TYPE" != "simple" ]; then
     aws s3 cp s3://$S3_BUCKET/public/test-scenarios/$TEST_TYPE/$TEST_ID.zip ./
     unzip $TEST_ID.zip
     # only looks for the first test script file.
-    TEST_SCRIPT=`find . -name "*.${EXT}" | head -n 1`
+    TEST_SCRIPT=`find . -maxdepth 2 -name "*.${EXT}" | head -n 1`
     if [ -z "$TEST_SCRIPT" ]; then
       echo "There is no test script (.${EXT}) in the zip file."
       exit 1
@@ -103,7 +103,9 @@ fi
 
 echo "Running test"
 stdbuf -i0 -o0 -e0 bzt test.json -o modules.console.disable=true | stdbuf -i0 -o0 -e0 tee -a result.tmp | sed -u -e "s|^|$TEST_ID $LIVE_DATA_ENABLED |"
-CALCULATED_DURATION=`cat result.tmp | grep -m1 "Test duration" | awk -F ' ' '{ print $5 }' | awk -F ':' '{ print ($1 * 3600) + ($2 * 60) + $3 }'`
+# Include || true for CALCULATED_DURATION,
+# '-m1' triggers a pipefail because it does not wait on cat to read the entire input
+CALCULATED_DURATION=`cat result.tmp | grep -m1 "Test duration" | awk -F ' ' '{ print $5 }' | awk -F ':' '{ print ($1 * 3600) + ($2 * 60) + $3 }'` || true
 
 # upload custom results to S3 if any
 # every file goes under $TEST_ID/$PREFIX/$UUID to distinguish the result correctly
