@@ -50,7 +50,7 @@ if [ "$TEST_TYPE" != "simple" ]; then
     aws s3 cp s3://$S3_BUCKET/public/test-scenarios/$TEST_TYPE/$TEST_ID.zip ./
     unzip $TEST_ID.zip
     # only looks for the first test script file.
-    TEST_SCRIPT=`find . -name "*.${EXT}" | head -n 1`
+    TEST_SCRIPT=`find . -maxdepth 2 -name "*.${EXT}" | head -n 1`
     if [ -z "$TEST_SCRIPT" ]; then
       echo "There is no test script (.${EXT}) in the zip file."
       exit 1
