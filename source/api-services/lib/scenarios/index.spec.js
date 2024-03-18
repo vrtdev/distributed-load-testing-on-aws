@@ -16,6 +16,7 @@ const mockAWS = require("aws-sdk");
 const moment = require("moment");
 mockAWS.S3 = jest.fn(() => ({
   putObject: mockS3,
+  deleteObject: mockS3,
 }));
 mockAWS.StepFunctions = jest.fn(() => ({
   startExecution: mockStepFunctions,
@@ -78,6 +79,7 @@ let getData = {
     name: "mytest",
     status: "running",
     testScenario: '{"name":"example"}',
+    testType: "simple",
     testTaskConfigs: [
       {
         region: "us-east-1",
@@ -95,6 +97,7 @@ let getDataWithConfigs = {
     name: "mytest",
     status: "running",
     testScenario: '{"name":"example"}',
+    testType: "simple",
     testTaskConfigs: [
       {
         region: "us-east-1",
@@ -131,6 +134,7 @@ let getDataWithNoConfigs = {
     name: "mytest",
     status: "running",
     testScenario: '{"name":"example"}',
+    testType: "simple",
   },
 };
 
@@ -140,6 +144,7 @@ let getDataWithEmptyConfigs = {
     name: "mytest",
     status: "running",
     testScenario: '{"name":"example"}',
+    testType: "simple",
     testTaskConfigs: [{}],
   },
 };
@@ -1641,11 +1646,21 @@ describe("#SCENARIOS API:: ", () => {
         return Promise.resolve();
       },
     }));
+    mockS3.mockImplementationOnce(() => ({
+      promise() {
+        // deleteObject
+        return Promise.resolve();
+      },
+    }));
 
     const response = await lambda.deleteTest(testId, context.functionName);
     const expectedDeleteDashboardParams = [`EcsLoadTesting-${testId}-${getRegionalConf.Item.region}`];
     expect(response).toEqual("success");
     expect(mockCloudWatch).toHaveBeenCalledWith({ DashboardNames: expectedDeleteDashboardParams });
+    expect(mockS3).toHaveBeenCalledWith({
+      Bucket: "bucket",
+      Key: `test-scenarios/${testId}-${getRegionalConf.Item.region}.json`,
+    });
   });
 
   it('should return "SUCCESS" when "DELETETEST" has unprocessed entries from "deleteTestHistory', async () => {
@@ -1710,11 +1725,21 @@ describe("#SCENARIOS API:: ", () => {
         return Promise.resolve();
       },
     }));
+    mockS3.mockImplementationOnce(() => ({
+      promise() {
+        // deleteObject
+        return Promise.resolve();
+      },
+    }));
 
     const response = await lambda.deleteTest(testId, context.functionName);
     const expectedDeleteDashboardParams = [`EcsLoadTesting-${testId}-${getRegionalConf.Item.region}`];
     expect(response).toEqual("success");
     expect(mockCloudWatch).toHaveBeenCalledWith({ DashboardNames: expectedDeleteDashboardParams });
+    expect(mockS3).toHaveBeenCalledWith({
+      Bucket: "bucket",
+      Key: `test-scenarios/${testId}-${getRegionalConf.Item.region}.json`,
+    });
   });
 
   it('DELETE should return "SUCCESS" when no metrics are found', async () => {
@@ -1773,6 +1798,12 @@ describe("#SCENARIOS API:: ", () => {
     }));
     mockLambda.mockImplementationOnce(() => ({
       promise() {
+        return Promise.resolve();
+      },
+    }));
+    mockS3.mockImplementationOnce(() => ({
+      promise() {
+        // deleteObject
         return Promise.resolve();
       },
     }));
