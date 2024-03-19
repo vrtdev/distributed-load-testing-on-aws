@@ -246,6 +246,15 @@ exports[`Distributed Load Testing stack test 1`] = `
             "CloudFrontCertificate",
           ],
         },
+        {
+          "Label": {
+            "default": "S3 Lifecycle Rules",
+          },
+          "Parameters": [
+            "removeNonCurrentVersionsAfter",
+            "RemoveResultsAfter",
+          ],
+        },
       ],
       "ParameterLabels": {
         "AdminEmail": {
@@ -272,6 +281,9 @@ exports[`Distributed Load Testing stack test 1`] = `
         "ExistingVPCId": {
           "default": "The ID of an existing VPC in this region. Ex: \`vpc-1a2b3c4d5e6f\`",
         },
+        "RemoveResultsAfter": {
+          "default": "The days after which to remove result files",
+        },
         "SubnetACidrBlock": {
           "default": "AWS Fargate Subnet A CIDR Block",
         },
@@ -280,6 +292,9 @@ exports[`Distributed Load Testing stack test 1`] = `
         },
         "VpcCidrBlock": {
           "default": "AWS Fargate VPC CIDR Block",
+        },
+        "removeNonCurrentVersionsAfter": {
+          "default": "The days after which to remove Non-current Versions",
         },
       },
     },
@@ -434,6 +449,12 @@ exports[`Distributed Load Testing stack test 1`] = `
       "Description": "Existing VPC ID",
       "Type": "String",
     },
+    "RemoveResultsAfter": {
+      "Default": 3720,
+      "Description": "Number of days to keep results.",
+      "MinValue": 1,
+      "Type": "Number",
+    },
     "SubnetACidrBlock": {
       "AllowedPattern": "(?:^$|(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2}))",
       "ConstraintDescription": "The subnet CIDR block must be a valid IP CIDR range of the form x.x.x.x/x.",
@@ -458,6 +479,12 @@ exports[`Distributed Load Testing stack test 1`] = `
       "MaxLength": 18,
       "MinLength": 9,
       "Type": "String",
+    },
+    "removeNonCurrentVersionsAfter": {
+      "Default": 372,
+      "Description": "Number of days to keep non current versions.",
+      "MinValue": 1,
+      "Type": "Number",
     },
   },
   "Resources": {
@@ -5605,6 +5632,32 @@ exports[`Distributed Load Testing stack test 1`] = `
               "ExposedHeaders": [
                 "ETag",
               ],
+            },
+          ],
+        },
+        "LifecycleConfiguration": {
+          "Rules": [
+            {
+              "NoncurrentVersionExpiration": {
+                "NoncurrentDays": {
+                  "Ref": "removeNonCurrentVersionsAfter",
+                },
+              },
+              "Status": "Enabled",
+            },
+            {
+              "ExpirationInDays": {
+                "Ref": "RemoveResultsAfter",
+              },
+              "Prefix": "results/",
+              "Status": "Enabled",
+            },
+            {
+              "AbortIncompleteMultipartUpload": {
+                "DaysAfterInitiation": 7,
+              },
+              "ExpiredObjectDeleteMarker": true,
+              "Status": "Enabled",
             },
           ],
         },
