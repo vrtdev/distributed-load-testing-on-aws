@@ -10,6 +10,7 @@ import {
   CfnParameter,
   CfnResource,
   CfnRule,
+  Duration,
   Fn,
   IAspect,
   Stack,
@@ -29,6 +30,7 @@ import { TaskRunnerStepFunctionConstruct } from "./back-end/step-functions";
 import { TestRunnerLambdasConstruct } from "./back-end/test-task-lambdas";
 import { FargateVpcConstruct } from "./testing-resources/vpc";
 import { RealTimeDataConstruct } from "./testing-resources/real-time-data";
+import { LifecycleRule } from "aws-cdk-lib/aws-s3";
 
 /**
  * CDK Aspect implementation to set up conditions to the entire Construct resources
@@ -199,6 +201,21 @@ export class DLTStack extends Stack {
       allowedPattern: "[a-zA-Z0-9-]+",
     });
 
+    // S3 LifecycleRules
+    // creating a lifecycleRule conditionally on a CfnParameter is hard in CDK, so we use a high number by default
+    const removeNonCurrentVersionsAfter = new CfnParameter(this, "RemoveNonCurrentVersionsAfter", {
+      type: "Number",
+      description: "Number of days to keep non current versions.",
+      default: 12 * 31,
+      minValue: 1,
+    });
+    const removeResultsAfter = new CfnParameter(this, "RemoveResultsAfter", {
+      type: "Number",
+      description: "Number of days to keep results.",
+      default: 10 * 12 * 31,
+      minValue: 1,
+    });
+
     // CloudFormation metadata
     this.templateOptions.metadata = {
       "AWS::CloudFormation::Interface": {
@@ -231,6 +248,10 @@ export class DLTStack extends Stack {
             },
             Parameters: [cloudFrontAliases.logicalId, cloudFrontCertificate.logicalId],
           },
+          {
+            Label: { default: "S3 Lifecycle Rules" },
+            Parameters: [removeNonCurrentVersionsAfter.logicalId, removeResultsAfter.logicalId],
+          },
         ],
         ParameterLabels: {
           [adminName.logicalId]: { default: "* Console Administrator Name" },
@@ -246,6 +267,8 @@ export class DLTStack extends Stack {
             default: "The ID of an existing Cognito User Pool in this region. Ex: `us-east-1_123456789`",
           },
           [domainLabel.logicalId]: { default: "The first label of the Cognito User Pool Domain. Ex: `mydomain`" },
+          [removeNonCurrentVersionsAfter.logicalId]: { default: "The days after which to remove Non-current Versions" },
+          [removeResultsAfter.logicalId]: { default: "The days after which to remove result files" },
         },
       },
     };
@@ -391,10 +414,22 @@ export class DLTStack extends Stack {
       dltConsole.cloudFrontDomainName
     ).toString();
 
+    const nonCurrentRemovalLifecycleRule: LifecycleRule = {
+      enabled: true,
+      // todo: parameter and condition
+      noncurrentVersionExpiration: Duration.days(removeNonCurrentVersionsAfter.valueAsNumber), // remove old versions (we delete objects when tests are deleted)
+    };
+    const resultsRemovalLifecycleRule: LifecycleRule = {
+      enabled: true,
+      prefix: "results/",
+      expiration: Duration.days(removeResultsAfter.valueAsNumber), // todo: parameter and condition
+    };
+
     const dltStorage = new ScenarioTestRunnerStorageConstruct(this, "DLTTestRunnerStorage", {
       s3LogsBucket,
       cloudFrontDomainName: cloudFrontDomainName,
       solutionId,
+      lifecycleRules: [nonCurrentRemovalLifecycleRule, resultsRemovalLifecycleRule],
     });
 
     const customResourceInfra = new CustomResourceInfraConstruct(this, "DLTCustomResourceInfra", {
