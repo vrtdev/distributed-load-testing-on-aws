@@ -18,6 +18,24 @@ echo "PREFIX:: ${PREFIX}"
 echo "UUID:: ${UUID}"
 echo "LIVE_DATA_ENABLED:: ${LIVE_DATA_ENABLED}"
 
+dump_logs() {
+    echo "=== DUMPING LOGS ==="
+    find /tmp/artifacts -type f -exec sh -c '
+        echo "=== {} ==="; cat "{}"; echo ""
+    ' \;
+}
+
+exit_handler() {
+    local exit_code=$?
+    [ $exit_code -eq 0 ] && exit 0
+
+    echo "ERROR: Script failed with exit code $exit_code" >&2
+    dump_logs
+    exit $exit_code
+}
+
+trap 'exit_handler' EXIT
+
 sigterm_handler() {
   if [ $pypid -ne 0 ]; then
     echo "container received SIGTERM."
@@ -96,7 +114,7 @@ if [ -n "$SCRIPT" ]; then
       pypid=$!
       wait $pypid
       pypid=0
-  else 
+  else
       python3 -u $SCRIPT $IPNETWORK $IPHOSTS
   fi
 fi
@@ -123,7 +141,7 @@ if [ "$TEST_TYPE" != "simple" ]; then
 
     echo "Files to upload as results"
     cat results.txt
-    
+
     files=(`cat results.txt`)
     for f in "${files[@]}"; do
       p="s3://$S3_BUCKET/results/$TEST_ID/${TYPE_NAME}_Result/$PREFIX/$UUID/$f"
