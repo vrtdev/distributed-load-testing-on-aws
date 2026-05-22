@@ -19,9 +19,11 @@ echo "UUID:: ${UUID}"
 echo "LIVE_DATA_ENABLED:: ${LIVE_DATA_ENABLED}"
 
 dump_logs() {
+    # Dump last 1000 lines for each output file, likely containing all relevant information
+    # Some files can get really large and would otherwise balloon the debug logs unnecessarily
     echo "=== DUMPING LOGS ==="
     find /tmp/artifacts -type f -exec sh -c '
-        echo "=== {} ==="; cat "{}"; echo ""
+        echo "=== {} ==="; tail -n 1000 "{}"; echo ""
     ' \;
 }
 

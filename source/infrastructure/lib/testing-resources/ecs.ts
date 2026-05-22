@@ -98,6 +98,9 @@ export class ECSResourcesConstruct extends Construct {
     const dltTaskDefinition = new CfnTaskDefinition(this, "DLTTaskDefinition", {
       cpu: "2048",
       memory: "4096",
+      ephemeralStorage: {
+        sizeInGiB: 40,
+      },
       networkMode: "awsvpc",
       executionRoleArn: this.taskExecutionRoleArn,
       requiresCompatibilities: ["FARGATE"],
