@@ -149,6 +149,9 @@ exports[`DLT ECS Test 1`] = `
           },
         ],
         "Cpu": "2048",
+        "EphemeralStorage": {
+          "SizeInGiB": 40,
+        },
         "ExecutionRoleArn": {
           "Fn::GetAtt": [
             "TestECSDLTTaskExecutionRole104D057B",

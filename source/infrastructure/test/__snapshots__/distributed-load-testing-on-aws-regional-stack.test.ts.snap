@@ -774,6 +774,9 @@ exports[`Distributed Load Testing Regional stack test 1`] = `
           },
         ],
         "Cpu": "2048",
+        "EphemeralStorage": {
+          "SizeInGiB": 40,
+        },
         "ExecutionRoleArn": {
           "Fn::GetAtt": [
             "DLTRegionalFargateDLTTaskExecutionRole22C06EF4",

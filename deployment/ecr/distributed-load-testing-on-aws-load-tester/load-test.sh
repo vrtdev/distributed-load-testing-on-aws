@@ -16,6 +16,26 @@ cat /proc/self/cgroup
 TASK_ID=$(cat /proc/self/cgroup | grep -oE '[a-f0-9]{32}' | head -n 1)
 echo $TASK_ID
 
+dump_logs() {
+    # Dump last 1000 lines for each output file, likely containing all relevant information
+    # Some files can get really large and would otherwise balloon the debug logs unnecessarily
+    echo "=== DUMPING LOGS ==="
+    find /tmp/artifacts -type f -exec sh -c '
+        echo "=== {} ==="; tail -n 1000 "{}"; echo ""
+    ' \;
+}
+
+exit_handler() {
+    local exit_code=$?
+    [ $exit_code -eq 0 ] && exit 0
+
+    echo "ERROR: Script failed with exit code $exit_code" >&2
+    dump_logs
+    exit $exit_code
+}
+
+trap 'exit_handler' EXIT
+
 sigterm_handler() {
   if [ $pypid -ne 0 ]; then
     echo "container received SIGTERM."

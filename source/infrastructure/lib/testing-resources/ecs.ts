@@ -106,6 +106,7 @@ export class ECSResourcesConstruct extends Construct {
     const dltTaskDefinition = new FargateTaskDefinition(this, "DLTTaskDefinition", {
       cpu: 2048,
       memoryLimitMiB: 4096,
+      ephemeralStorageGiB: 40,
       executionRole: dltTaskExecutionRole,
       taskRole: dltTaskExecutionRole,
     });

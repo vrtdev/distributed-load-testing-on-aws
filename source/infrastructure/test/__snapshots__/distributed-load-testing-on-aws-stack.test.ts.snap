@@ -3499,6 +3499,9 @@ exports[`Distributed Load Testing stack test 1`] = `
           },
         ],
         "Cpu": "2048",
+        "EphemeralStorage": {
+          "SizeInGiB": 40,
+        },
         "ExecutionRoleArn": {
           "Fn::GetAtt": [
             "DLTEcsDLTTaskExecutionRoleDE668717",
